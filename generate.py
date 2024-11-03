@@ -1,5 +1,10 @@
-import zipfile
 import os
+import zipfile
+from typing import Dict, List
+
+import requests
+from bs4 import BeautifulSoup
+from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 agency = """agency_id,agency_name,agency_lang,agency_timezone,agency_url,agency_phone,agency_email,agency_fare_url
 1,Kapnos Airport Shuttle,en,Asia/Nicosia,https://kapnosairportshuttle.com,+357 24 00 87 18,info@kapnosairportshuttle.com,https://kapnosairportshuttle.com/routes"""
@@ -12,6 +17,17 @@ routes = "route_id,route_short_name,route_long_name,route_type,route_url"
 __id = 0
 
 
+class Period:
+    def __convert_date(self, date: str):
+        day, month, year = date.split("/")
+        return f"{year}{month}{day}"
+
+    def __init__(self, id, start_date, end_date):
+        self.id = id
+        self.start_date = self.__convert_date(start_date)
+        self.end_date = self.__convert_date(end_date)
+
+
 def id():
     global __id
     __id += 1
@@ -22,7 +38,8 @@ def stop(stop_name, stop_lat, stop_lon):
     global stops
     stop_point_id = id()
     stop_area_id = id()
-    stop_point = f"\n{stop_point_id},{stop_name},{stop_lat},{stop_lon},0,{stop_area_id},0"
+    stop_point = f"\n{stop_point_id},{stop_name},{
+        stop_lat},{stop_lon},0,{stop_area_id},0"
     stop_area = f"\n{stop_area_id},{stop_name},{stop_lat},{stop_lon},1,,0"
     stops += (stop_point + stop_area)
     return stop_point_id
@@ -31,7 +48,8 @@ def stop(stop_name, stop_lat, stop_lon):
 def service(monday, tuesday, wednesday, thursday, friday, saturday, sunday, valid_from, valid_to):
     global calendar
     service_id = id()
-    calendar += f"\n{service_id},{monday},{tuesday},{wednesday},{thursday},{friday},{saturday},{sunday},{valid_from},{valid_to}"
+    calendar += f"\n{service_id},{monday},{tuesday},{wednesday},{
+        thursday},{friday},{saturday},{sunday},{valid_from},{valid_to}"
     return service_id
 
 
@@ -81,6 +99,84 @@ def add_trips(route_id, service_id,
                  end_stop_point_id, start_time, travel_time_minutes)
 
 
+def parse_table(soup: BeautifulSoup) -> Dict[str, List[str]]:
+    table = soup.find("table", {"id": "route-table"})
+    headers = [th.text.strip() for th in table.find_all("th")]
+    schedule = {day: [] for day in headers}
+
+    for tr in table.find_all("tr"):
+        cells = tr.find_all("td")
+        if len(cells) == len(headers):
+            for i, cell in enumerate(cells):
+                time_text = cell.get_text(strip=True)
+                if time_text and time_text != "-":
+                    schedule[headers[i]].append(time_text)
+
+    return schedule
+
+
+def parse_periods(soup: BeautifulSoup):
+    options = soup.find(
+        "select", {"name": "period_id"}).find_all("option")
+    periods = []
+    current_period = None
+    for option in options:
+        period = Period(option["value"], *option.text.split(" - "))
+        if option.has_attr("selected"):
+            current_period = period
+        else:
+            periods.append(period)
+    return periods, current_period
+
+
+def add_trips_from_url(route_id,
+                       start_stop_point_id, end_stop_point_id,
+                       travel_time_minutes, url):
+    print(f"Fetching data from {url}")
+    session = requests.Session()
+    page = session.get(url)
+    soup = BeautifulSoup(page.content, 'html.parser')
+    _token = soup.find("input", {"name": "_token"})["value"]
+
+    periods, current_period = parse_periods(soup)
+
+    periods_schedule = [(current_period, parse_table(soup))]
+
+    print(f"Found period from {current_period.start_date} to {
+          current_period.end_date}")
+
+    for period in periods:
+        form_data = MultipartEncoder(
+            fields={
+                "_token": _token,
+                "period_id": str(period.id)
+            }
+        )
+        headers = {
+            "Content-Type": form_data.content_type
+        }
+        page = session.post(url, data=form_data, headers=headers)
+        soup = BeautifulSoup(page.content, 'html.parser')
+        periods_schedule.append((period, parse_table(soup)))
+        print(f"Found period from {period.start_date} to {period.end_date}")
+
+    for period, schedule in periods_schedule:
+        for day, start_times in schedule.items():
+            service_id = service(
+                int(day == "Monday"),
+                int(day == "Tuesday"),
+                int(day == "Wednesday"),
+                int(day == "Thursday"),
+                int(day == "Friday"),
+                int(day == "Saturday"),
+                int(day == "Sunday"),
+                period.start_date,
+                period.end_date
+            )
+            add_trips(route_id, service_id, start_stop_point_id,
+                      end_stop_point_id, travel_time_minutes, start_times)
+
+
 def generate():
     """
     Create all txt files and zip it in a single file
@@ -102,33 +198,28 @@ def generate():
 
 
 if __name__ == "__main__":
-    VALID_FROM = "20200101"
-    VALID_TO = "20241231"
-
-    week_end_service = service(0, 0, 0, 0, 0, 1, 1, VALID_FROM, VALID_TO)
-    week_day_service = service(1, 1, 1, 1, 1, 0, 0, VALID_FROM, VALID_TO)
-    week_service = service(1, 1, 1, 1, 1, 1, 1, VALID_FROM, VALID_TO)
-
     larnaca_airport = stop("Kapnos Bus Station - Larnaca Airport",
                            34.870561341994815, 33.606514350233944)
+    paphos_airport = stop("Paphos Airport Bus Station",
+                          34.71147673509841, 32.48893335140306)
     nicosia = stop("Kapnos Bus Station - Nicosia (Kyrenias Ave.)",
                    35.14871877404405, 33.37542849791872)
 
     larnaca_nicosia_route = route(
         "Larnaca - Nicosia", "https://kapnosairportshuttle.com/routes/4/en/1")
+    paphos_nicosia_route = route(
+        "Paphos - Nicosia", "https://kapnosairportshuttle.com/routes/11/en/1")
 
-    add_trips(larnaca_nicosia_route, week_service,
-              larnaca_airport, nicosia, 40,
-              ["02:15", "07:45", "09:00", "10:00", "11:45",
-               "13:45", "14:45", "15:45", "16:45", "17:45",
-               "18:45", "19:45", "20:45", "21:45", "22:45", "23:45"])
+    add_trips_from_url(larnaca_nicosia_route, larnaca_airport,
+                       nicosia, 40, "https://kapnosairportshuttle.com/routes/4/en/1")
 
-    add_trips(larnaca_nicosia_route, week_day_service,
-              larnaca_airport, nicosia, 40,
-              ["10:30", "11:00", "12:30", "18:15", "20:15"])
+    add_trips_from_url(larnaca_nicosia_route, nicosia, larnaca_airport,
+                       40, "https://kapnosairportshuttle.com/routes/5/en/1")
 
-    add_trips(larnaca_nicosia_route, week_end_service,
-              larnaca_airport, nicosia, 40,
-              ["04:45", "05:45", "10:45", "12:45"])
+    add_trips_from_url(paphos_nicosia_route, nicosia, paphos_airport,
+                       100, "https://kapnosairportshuttle.com/routes/11/en/1")
+
+    add_trips_from_url(paphos_nicosia_route, paphos_airport, nicosia,
+                       100, "https://kapnosairportshuttle.com/routes/10/en/1")
 
     generate()
