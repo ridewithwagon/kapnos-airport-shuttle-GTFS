@@ -229,17 +229,29 @@ def generate():
 
 
 if __name__ == "__main__":
-    larnaca_airport = stop("Kapnos Bus Station - Larnaca Airport",
+    larnaca_airport = stop("Kapnos - Larnaca Airport",
                            34.870561341994815, 33.606514350233944)
-    paphos_airport = stop("Paphos Airport Bus Station",
+    paphos_airport = stop("Kapnos - Paphos Airport",
                           34.71147673509841, 32.48893335140306)
-    nicosia = stop("Kapnos Bus Station - Nicosia (Kyrenias Ave.)",
+    nicosia = stop("Kapnos - Nicosia (Kyrenias Ave.)",
                    35.14871877404405, 33.37542849791872)
+    ayia_napa_nissi_ave_80 = stop(
+        "Kapnos - Ayia Napa (Nissi Ave.)", 34.989462262857344, 33.97755919456195)
+    protaras_ave_3 = stop("Kapnos - Protaras (Ave. 3)",
+                          35.01772769511953, 34.04745892792459)
 
     larnaca_nicosia_route = route(
         "Larnaca - Nicosia", "https://kapnosairportshuttle.com/routes/4/en/1")
     paphos_nicosia_route = route(
         "Paphos - Nicosia", "https://kapnosairportshuttle.com/routes/11/en/1")
+    larnaca_paphos_route = route(
+        "Larnaca - Paphos", "https://kapnosairportshuttle.com/routes/6/en/1")
+    larnaca_niss_ave_route = route(
+        "Larnaca - Ayia Napa (Nissi Ave.)", "https://kapnosairportshuttle.com/routes/3/en/1")
+    larnaca_protaras = route("Larnaca - Protaras (Ave. 3)",
+                             "https://kapnosairportshuttle.com/routes/8/en/1")
+    larnaca_hq_paphos = route("Larnaca (HQ) - Paphos",
+                              "https://kapnosairportshuttle.com/routes/12/en/1")
 
     add_trips_from_url(larnaca_nicosia_route, larnaca_airport,
                        nicosia, 40, "https://kapnosairportshuttle.com/routes/4/en/1")
@@ -252,5 +264,29 @@ if __name__ == "__main__":
 
     add_trips_from_url(paphos_nicosia_route, paphos_airport, nicosia,
                        100, "https://kapnosairportshuttle.com/routes/10/en/1")
+
+    add_trips_from_url(larnaca_paphos_route, larnaca_airport, paphos_airport,
+                       100, "https://kapnosairportshuttle.com/routes/6/en/1")
+
+    add_trips_from_url(larnaca_paphos_route, paphos_airport, larnaca_airport,
+                       100, "https://kapnosairportshuttle.com/routes/7/en/1")
+
+    add_trips_from_url(larnaca_niss_ave_route, ayia_napa_nissi_ave_80,
+                       larnaca_airport, 40, "https://kapnosairportshuttle.com/routes/3/en/1")
+
+    add_trips_from_url(larnaca_niss_ave_route, larnaca_airport, ayia_napa_nissi_ave_80,
+                       40, "https://kapnosairportshuttle.com/routes/2/en/1")
+
+    add_trips_from_url(larnaca_protaras, larnaca_airport, protaras_ave_3,
+                       60, "https://kapnosairportshuttle.com/routes/8/en/1")
+
+    add_trips_from_url(larnaca_protaras, protaras_ave_3, larnaca_airport,
+                       60, "https://kapnosairportshuttle.com/routes/19/en/1")
+
+    add_trips_from_url(larnaca_hq_paphos, paphos_airport, larnaca_airport,
+                       100, "https://kapnosairportshuttle.com/routes/12/en/1")
+
+    # TODO: https://kapnosairportshuttle.com/routes/15/en/1
+    # TODO: https://kapnosairportshuttle.com/routes/16/en/1
 
     generate()
