@@ -11,8 +11,10 @@ agency = """agency_id,agency_name,agency_lang,agency_timezone,agency_url,agency_
 trips = "route_id,service_id,trip_id"
 stop_times = "trip_id,arrival_time,departure_time,stop_id,stop_sequence"
 calendar = "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date"
-stops = "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station,wheelchair_boarding"
+stops = "stop_id,stop_name,stop_lat,stop_lon,zone_id,location_type,parent_station,wheelchair_boarding"
 routes = "route_id,route_short_name,route_long_name,route_type,route_url"
+fare_rules = "fare_id,route_id,origin_id,destination_id"
+fare_attributes = "fare_id,price,currency_type,payment_method,transfers"
 
 __id = 0
 
@@ -38,9 +40,11 @@ def stop(stop_name, stop_lat, stop_lon):
     global stops
     stop_point_id = id()
     stop_area_id = id()
+    zone_id = stop_point_id
     stop_point = f"\n{stop_point_id},{stop_name},{
-        stop_lat},{stop_lon},0,{stop_area_id},0"
-    stop_area = f"\n{stop_area_id},{stop_name},{stop_lat},{stop_lon},1,,0"
+        stop_lat},{stop_lon},{zone_id},0,{stop_area_id},0"
+    stop_area = f"\n{stop_area_id},{stop_name},{
+        stop_lat},{stop_lon},{zone_id},1,,0"
     stops += (stop_point + stop_area)
     return stop_point_id
 
@@ -99,6 +103,13 @@ def add_trips(route_id, service_id,
                  end_stop_point_id, start_time, travel_time_minutes)
 
 
+def add_fare_rule(route_id, origin_id, destination_id, price_eur):
+    global fare_rules, fare_attributes
+    fare_id = id()
+    fare_rules += f"\n{fare_id},{route_id},{origin_id},{destination_id}"
+    fare_attributes += f"\n{fare_id},{price_eur},EUR,1,0"
+
+
 def parse_table(soup: BeautifulSoup) -> Dict[str, List[str]]:
     table = soup.find("table", {"id": "route-table"})
     headers = [th.text.strip() for th in table.find_all("th")]
@@ -113,6 +124,19 @@ def parse_table(soup: BeautifulSoup) -> Dict[str, List[str]]:
                     schedule[headers[i]].append(time_text)
 
     return schedule
+
+
+def get_adult_price(soup: BeautifulSoup) -> float:
+    prices_div = soup.find("div", class_="route-tickets-col")
+
+    for price_div in prices_div.find_all("div", class_="price-div"):
+        person = price_div.find("p", class_="person").get_text(strip=True)
+        if "Adult" in person:
+            price_text = price_div.find(
+                "p", class_="price").get_text(strip=True)
+            return float(price_text.replace("€", "").replace(",", "."))
+
+    return 0.0
 
 
 def parse_periods(soup: BeautifulSoup):
@@ -176,6 +200,11 @@ def add_trips_from_url(route_id,
             add_trips(route_id, service_id, start_stop_point_id,
                       end_stop_point_id, travel_time_minutes, start_times)
 
+    adult_price_eur = get_adult_price(soup)
+    add_fare_rule(route_id, start_stop_point_id,
+                  end_stop_point_id, adult_price_eur)
+    print(f"Adult price: {adult_price_eur}€")
+
 
 def generate():
     """
@@ -187,7 +216,9 @@ def generate():
         ("stop_times.txt", stop_times),
         ("calendar.txt", calendar),
         ("stops.txt", stops),
-        ("routes.txt", routes)
+        ("routes.txt", routes),
+        ("fare_rules.txt", fare_rules),
+        ("fare_attributes.txt", fare_attributes)
     ]
     with zipfile.ZipFile("gtfs.zip", "w") as z:
         for file_name, content in files:
