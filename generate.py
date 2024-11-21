@@ -271,17 +271,19 @@ if __name__ == "__main__":
     add_trips_from_url(larnaca_paphos_route, paphos_airport, larnaca_airport,
                        100, "https://kapnosairportshuttle.com/routes/7/en/1")
 
-    add_trips_from_url(larnaca_niss_ave_route, ayia_napa_nissi_ave_80,
-                       larnaca_airport, 40, "https://kapnosairportshuttle.com/routes/3/en/1")
+    # TODO: vérifier si les urls affichent bien le tableau horaire ou si les routes ont été désactivées (redirection /)
 
-    add_trips_from_url(larnaca_niss_ave_route, larnaca_airport, ayia_napa_nissi_ave_80,
-                       40, "https://kapnosairportshuttle.com/routes/2/en/1")
+    # add_trips_from_url(larnaca_niss_ave_route, ayia_napa_nissi_ave_80,
+    #                    larnaca_airport, 40, "https://kapnosairportshuttle.com/routes/3/en/1")
 
-    add_trips_from_url(larnaca_protaras, larnaca_airport, protaras_ave_3,
-                       60, "https://kapnosairportshuttle.com/routes/8/en/1")
+    # add_trips_from_url(larnaca_niss_ave_route, larnaca_airport, ayia_napa_nissi_ave_80,
+    #                    40, "https://kapnosairportshuttle.com/routes/2/en/1")
 
-    add_trips_from_url(larnaca_protaras, protaras_ave_3, larnaca_airport,
-                       60, "https://kapnosairportshuttle.com/routes/19/en/1")
+    # add_trips_from_url(larnaca_protaras, larnaca_airport, protaras_ave_3,
+    #                    60, "https://kapnosairportshuttle.com/routes/8/en/1")
+
+    # add_trips_from_url(larnaca_protaras, protaras_ave_3, larnaca_airport,
+    #                    60, "https://kapnosairportshuttle.com/routes/19/en/1")
 
     add_trips_from_url(larnaca_hq_paphos, paphos_airport, larnaca_airport,
                        100, "https://kapnosairportshuttle.com/routes/12/en/1")
